@@ -1,6 +1,14 @@
 import { jsPDF } from 'jspdf';
 import { formatCurrency } from '../utils/format.js';
 
+function normalizeTaxes(data) {
+  if (Array.isArray(data.taxes) && data.taxes.length > 0) return data.taxes;
+  if (data.taxRate != null && String(data.taxRate).trim() !== '') {
+    return [{ id: 'legacy', label: 'NY Income Tax', rate: String(data.taxRate) }];
+  }
+  return [];
+}
+
 /**
  * Load an image from a URL or data-URL and return it as a base64 data URL.
  * Returns null on failure.
@@ -154,33 +162,57 @@ export async function generateInvoice(data) {
   // ── SUMMARY ────────────────────────────────────────
 
   const summaryY = dataY + rowH + 10;
-  const taxRate = parseFloat(data.taxRate) || 0;
-  const taxAmount = lineTotal * (taxRate / 100);
-  const grandTotal = lineTotal + taxAmount;
+  const taxRows = normalizeTaxes(data);
+  const sumRowH = 8;
+  const sumGap = 2;
+
+  let totalTaxAmount = 0;
+  for (const t of taxRows) {
+    const rateNum = parseFloat(t?.rate);
+    const pct = Number.isFinite(rateNum) ? rateNum : 0;
+    totalTaxAmount += lineTotal * (pct / 100);
+  }
+  const grandTotal = lineTotal + totalTaxAmount;
+
+  let y = summaryY;
 
   // Subtotal row
   doc.setFillColor(240, 245, 240);
-  doc.rect(10, summaryY, totalWidth, 8, 'F');
+  doc.rect(10, y, totalWidth, sumRowH, 'F');
   doc.setTextColor(0, 0, 0);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(10);
-  doc.text('Subtotal', 12, summaryY + 6);
-  doc.text(formatCurrency(lineTotal), 10 + totalWidth - 2, summaryY + 6, { align: 'right' });
+  doc.text('Subtotal', 12, y + 6);
+  doc.text(formatCurrency(lineTotal), 10 + totalWidth - 2, y + 6, { align: 'right' });
+  y += sumRowH + sumGap;
 
-  // Tax row
-  doc.setFillColor(240, 245, 240);
-  doc.rect(10, summaryY + 10, totalWidth, 8, 'F');
-  doc.setTextColor(0, 0, 0);
-  const taxLabel = `NY Income Tax ${taxRate.toFixed(2).replace('.', ',')}%`;
-  doc.text(taxLabel, 12, summaryY + 16);
-  doc.text(formatCurrency(taxAmount), 10 + totalWidth - 2, summaryY + 16, { align: 'right' });
+  // Tax rows
+  for (const t of taxRows) {
+    const rateNum = parseFloat(t?.rate);
+    const pct = Number.isFinite(rateNum) ? rateNum : 0;
+    const taxAmount = lineTotal * (pct / 100);
+    const labelText = (t?.label && String(t.label).trim()) ? String(t.label).trim() : 'Tax';
+    const rateStr = pct.toFixed(2).replace('.', ',');
+    const taxLabel = `${labelText} ${rateStr}%`;
+
+    doc.setFillColor(240, 245, 240);
+    doc.rect(10, y, totalWidth, sumRowH, 'F');
+    doc.setTextColor(0, 0, 0);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.text(taxLabel, 12, y + 6);
+    doc.text(formatCurrency(taxAmount), 10 + totalWidth - 2, y + 6, { align: 'right' });
+    y += sumRowH + sumGap;
+  }
+
+  y += 4;
 
   // Total row
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(0, 0, 0);
-  doc.text('Total', 12, summaryY + 30);
-  doc.text(formatCurrency(grandTotal), 10 + totalWidth - 2, summaryY + 30, { align: 'right' });
+  doc.text('Total', 12, y + 6);
+  doc.text(formatCurrency(grandTotal), 10 + totalWidth - 2, y + 6, { align: 'right' });
 
   // ── SIGNATURE (footer) ─────────────────────────────
 

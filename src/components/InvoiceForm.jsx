@@ -7,12 +7,35 @@ const inputClass =
   'w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors';
 const sectionTitle = 'text-xs font-semibold uppercase tracking-wider text-text-muted mb-3 flex items-center gap-2';
 
+const newTaxRow = () => ({
+  id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `tax-${Date.now()}`,
+  label: '',
+  rate: '',
+});
+
 export default function InvoiceForm({ formData, onChange, onLogoChange, onSignatureChange }) {
   const logoInputRef = useRef(null);
   const sigInputRef = useRef(null);
 
   const handleChange = (field) => (e) => {
     onChange({ ...formData, [field]: e.target.value });
+  };
+
+  const taxes = Array.isArray(formData.taxes) ? formData.taxes : [];
+
+  const updateTax = (id, field, value) => {
+    onChange({
+      ...formData,
+      taxes: taxes.map((t) => (t.id === id ? { ...t, [field]: value } : t)),
+    });
+  };
+
+  const addTax = () => {
+    onChange({ ...formData, taxes: [...taxes, newTaxRow()] });
+  };
+
+  const removeTax = (id) => {
+    onChange({ ...formData, taxes: taxes.filter((t) => t.id !== id) });
   };
 
   const handleFileUpload = (type) => (e) => {
@@ -112,7 +135,7 @@ export default function InvoiceForm({ formData, onChange, onLogoChange, onSignat
             <label className={labelClass}>Description</label>
             <input className={inputClass} value={formData.description} onChange={handleChange('description')} />
           </div>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={labelClass}>Quantity</label>
               <input
@@ -133,17 +156,58 @@ export default function InvoiceForm({ formData, onChange, onLogoChange, onSignat
                 onChange={handleChange('unitPrice')}
               />
             </div>
-            <div>
-              <label className={labelClass}>Tax Rate (%)</label>
-              <input
-                className={inputClass}
-                type="number"
-                step="0.01"
-                value={formData.taxRate}
-                onChange={handleChange('taxRate')}
-              />
-            </div>
           </div>
+        </div>
+      </div>
+
+      {/* Taxes */}
+      <div className={sectionClass}>
+        <h3 className={sectionTitle}>
+          <span>🧾</span> Taxes
+        </h3>
+        <p className="text-[11px] text-text-muted mb-3">Optional. Add labels and rates; leave empty or remove all for no tax.</p>
+        <div className="space-y-3">
+          {taxes.length === 0 && (
+            <p className="text-xs text-text-muted italic">No tax lines. Use &quot;Add tax&quot; to add one.</p>
+          )}
+          {taxes.map((tax) => (
+            <div key={tax.id} className="flex flex-col gap-2 sm:flex-row sm:items-end sm:gap-2">
+              <div className="min-w-0 flex-1">
+                <label className={labelClass}>Label</label>
+                <input
+                  className={inputClass}
+                  placeholder="e.g. Sales tax, VAT"
+                  value={tax.label}
+                  onChange={(e) => updateTax(tax.id, 'label', e.target.value)}
+                />
+              </div>
+              <div className="w-full sm:w-28 shrink-0">
+                <label className={labelClass}>Rate (%)</label>
+                <input
+                  className={inputClass}
+                  type="number"
+                  step="0.01"
+                  placeholder="0"
+                  value={tax.rate}
+                  onChange={(e) => updateTax(tax.id, 'rate', e.target.value)}
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => removeTax(tax.id)}
+                className="shrink-0 rounded-lg border border-border bg-surface-elevated px-3 py-2 text-xs font-medium text-text-secondary hover:border-red-400/50 hover:bg-red-500/10 hover:text-red-600 transition-all cursor-pointer sm:mb-0"
+              >
+                Remove
+              </button>
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={addTax}
+            className="w-full rounded-lg border border-dashed border-border bg-surface-elevated/50 px-3 py-2 text-xs font-medium text-text-secondary hover:border-primary/40 hover:bg-primary/10 hover:text-primary transition-all cursor-pointer"
+          >
+            + Add tax
+          </button>
         </div>
       </div>
 

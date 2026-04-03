@@ -17,7 +17,7 @@ const DEFAULT_FORM = {
   description: 'Software Development (hours)',
   quantity: '80',
   unitPrice: '75',
-  taxRate: '8.25',
+  taxes: [{ id: 'tax-1', label: 'NY Income Tax', rate: '8.25' }],
   logoDataUrl: null,
   signatureDataUrl: null,
 };
